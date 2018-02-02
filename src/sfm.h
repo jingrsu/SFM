@@ -11,8 +11,8 @@ using namespace std;
 class SFM
 {
 public:
-	SFM();
-
+	SFM(ImageSet& _imageset, KeyPoints& _keypoints, Matches& _matches, TrackList& _tracklist);
+	void findBaselineTriangulation();
 private:
 
 	ImageSet & imageset;
@@ -20,7 +20,13 @@ private:
 	Matches& matches;
 	TrackList& tracklist;
 
-	void findBaselineTriangulation();
+	void sortPairsForBaseline(vector<pair<float, pair<int, int>>>& pairs);
+	void getMatchedPoints(int i, int j, vector<cv::Point2f>&points_i, vector<cv::Point2f>&points_j);
+	cv::Mat findEssential(int left, int right);
+	cv::Mat findEssential(cv::Mat& K_left, cv::Mat& K_right, vector<cv::Point2f>& points_left, vector<cv::Point2f>& points_right);
+	void recoverPose(cv::Mat& K_left, cv::Mat& K_right, vector<cv::Point2f>& points_left, vector<cv::Point2f>& points_right, cv::Mat& R, cv::Mat& T);
+	int EstimatePose5Point(int left, int right, double* R, double* T);
+	/*void findBaselineTriangulation();*/
 	void addMoreViewsToReconstruction();
 	void BundleAdjustment();
 };

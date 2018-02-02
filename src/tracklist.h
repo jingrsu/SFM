@@ -14,10 +14,12 @@ using namespace std;
 
 class TrackList {
 private:
-	vector<Track> tracks;
-	vector<vector<int> > trackIds;
 	void removeTracks(const vector<bool>&invalidTracks, vector<Track>&tracks);
 public:
+
+	vector<Track> tracks;
+	vector<vector<int> > trackIds;
+
 	TrackList(const KeyPoints&keypoints, const Matches&matches);
 	TrackList(const string&fileName);
 	//Èý½Ç»¯

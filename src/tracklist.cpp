@@ -103,7 +103,7 @@ TrackList::TrackList(const KeyPoints&keypoints, const Matches&matches)
 	{
 		Track&track = tracks[i];
 		//删除小于3个视图的，空视图的，有冲突的
-		if (track.features.size()<3 || track.features.empty() || track.hasConfilct())
+		if (track.features.size()<2 || track.features.empty() || track.hasConfilct())
 		{
 			invalidTracks[i] = true;
 			cout << "remove track:" << i << endl;

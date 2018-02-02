@@ -45,8 +45,13 @@ ImageSet::ImageSet(const string& imageDir)
 {
 	vector<string> names;
 	get_file_names(imageDir, names);
+	cv::Mat K(cv::Matx33d(
+		2759.48, 0, 1520.69,
+		0, 2764.16, 1006.81,
+		0, 0, 1));
 	for (size_t i = 0; i < names.size(); i++)
 	{
 		images.push_back(cv::imread(names[i]));
+		Kmats.push_back(K);
 	}
 }
