@@ -28,7 +28,7 @@ void SFM::sortPairsForBaseline(vector<pair<float, pair<int, int>>>& pairs)
 		for (size_t j = i + 1; j < nFrames; j++)
 		{
 			const vector<cv::DMatch>& matchVec = matches.getMatches(i, j);
-			if (matchVec.size() < 100)
+			if (matchVec.size() < 200)
 				continue;
 			vector<cv::Point2f> points_i, points_j;
 			cv::Mat mask;
@@ -123,7 +123,7 @@ void SFM::recoverPose(cv::Mat& K_left, cv::Mat& K_right, vector<cv::Point2f>& po
 		else
 			count2--;
 	}
-
+	cout << "count1: " << count1 << " count2: " << count2 << endl;
 	if (count1 > 0 && count2 > 0)
 	{
 		R1.copyTo(R);
@@ -136,11 +136,11 @@ void SFM::recoverPose(cv::Mat& K_left, cv::Mat& K_right, vector<cv::Point2f>& po
 	else if (count1 < 0 && count2 > 0)
 	{
 		R2.copyTo(R);
+		T = -T;
 	}
 	else
 	{
 		R2.copyTo(R);
-		T = -T;
 	}
 }
 
@@ -217,7 +217,7 @@ void SFM::findBaselineTriangulation()
 		const vector<cv::DMatch>& matchVec = matches.getMatches(i, j);
 		vector<int> trackIdx1 = tracklist.trackIds[i];
 		vector<int> trackIdx2 = tracklist.trackIds[j];
-		for (size_t k = 0; k < matchVec.size; k++)
+		for (size_t k = 0; k < matchVec.size(); k++)
 		{
 			int idx1 = trackIdx1[matchVec[k].queryIdx];
 			int idx2 = trackIdx2[matchVec[k].trainIdx];
@@ -227,11 +227,249 @@ void SFM::findBaselineTriangulation()
 			cv::Mat_<double> col = s.col(k);
 			col /= col(3);
 
-			tracklist.tracks[idx1].x = col(0);
-			tracklist.tracks[idx1].y = col(1);
-			tracklist.tracks[idx1].z = col(2);
+			tracklist.tracks[idx1].position.x = col(0);
+			tracklist.tracks[idx1].position.y = col(1);
+			tracklist.tracks[idx1].position.z = col(2);
+
+			tracklist.tracks[idx1].status = 1;
+			tracklist.DoneTracks++;
 		}
 
+		for (size_t k = 0; k < trackIdx1.size(); k++)
+		{
+			int idx = trackIdx1[k];
+			if (idx == -1)
+				continue;
+
+			if (tracklist.tracks[idx].status == -1)
+			{
+				tracklist.tracks[idx].status = 0;
+				tracklist.tracks[idx].frameIdx_and_idx = pair<int, int>(i, k);
+			}
+		}
+
+		for (size_t k = 0; k < trackIdx2.size(); k++)
+		{
+			int idx = trackIdx2[k];
+			if (idx == -1)
+				continue;
+
+			if (tracklist.tracks[idx].status == -1)
+			{
+				tracklist.tracks[idx].status = 0;
+				tracklist.tracks[idx].frameIdx_and_idx = pair<int, int>(j, k);
+			}
+		}
+
+		imageset.updateRTmat(i, cv::Mat::eye(3, 3, CV_32FC1), cv::Mat::zeros(3, 1, CV_32FC1));
+		imageset.updateRTmat(j, R, T);
+		DoneViews.insert(i);
+		DoneViews.insert(j);
+		break;
+
 		system("pause");
+	}
+
+	BundleAdjustment();
+}
+
+void SFM::addMoreViewsToReconstruction()
+{
+	cout << "----------Add More Views----------" << endl;
+
+	while (DoneViews.size() != imageset.images.size())
+	{
+		size_t bestNumMatches = 0;
+		size_t bestView;
+
+		for (size_t viewIdx = 0; viewIdx < imageset.images.size(); viewIdx++)
+		{
+			if (DoneViews.find(viewIdx) != DoneViews.end())
+				continue;
+
+			size_t tmpNumMatches = 0;
+			vector<int> trackIdx = tracklist.trackIds[viewIdx];
+			for (size_t i = 0; i < trackIdx.size(); i++)
+			{
+				if (trackIdx[i] == -1)
+					continue;
+
+				if (tracklist.tracks[trackIdx[i]].status == 1)
+					tmpNumMatches++;
+			}
+
+			if (tmpNumMatches > bestNumMatches)
+			{
+				bestNumMatches = tmpNumMatches;
+				bestView = viewIdx;
+			}
+		}
+
+		if (bestNumMatches < 20)
+		{
+			cout << "There are too few matching images here" << endl;
+			break;
+		}
+
+		DoneViews.insert(bestView);
+
+		cout << "Best view " << bestView << " has " << bestNumMatches << " matches" << endl;
+		cout << "Trying to recover the new view camera pose" << endl;
+
+		vector<cv::Point3f> object_points;
+		vector<cv::Point2f> image_points;
+		vector<int> trackIdx = tracklist.trackIds[bestView];
+		assert(trackIdx.size() == keypoints.getKeyPointNum(bestView));
+		for (size_t i = 0; i < trackIdx.size(); i++)
+		{
+			if (trackIdx[i] == -1)
+				continue;
+
+			Track &track = tracklist.tracks[trackIdx[i]];
+			if (track.status != 1)
+				continue;
+
+			object_points.push_back(cv::Point3f(track.position));
+			image_points.push_back(keypoints.getKeyPoint(bestView, i).pt);
+		}
+
+		cv::Mat r, R, T, inliers;;
+		cv::solvePnPRansac(object_points, image_points, imageset.Kmats[bestView], cv::noArray(), r, T, false, 100, 10.0, 0.99, inliers);//之后改进，判断内点比率
+		cout << "Inliers ratio is " << (float)cv::countNonZero(inliers) / object_points.size() << endl;
+		cv::Rodrigues(r, R);
+		imageset.updateRTmat(bestView, R, T);
+
+		cout << "New view " << bestView << " pose " << endl << imageset.RTmats[bestView] << endl;
+
+		for (size_t i = 0; i < trackIdx.size(); i++)
+		{
+			if (trackIdx[i] == -1)
+				continue;
+
+			Track &track = tracklist.tracks[trackIdx[i]];
+			if (track.status == 0)
+			{
+				track.triangulate(imageset.Pmats[track.frameIdx_and_idx.first], imageset.Pmats[bestView], keypoints.getKeyPoint(track.frameIdx_and_idx.first, track.frameIdx_and_idx.second).pt, keypoints.getKeyPoint(bestView, i).pt);
+				track.status = 1;
+				tracklist.DoneTracks++;
+			}
+		}
+
+		BundleAdjustment();
+	}
+}
+
+void SFM::BundleAdjustment()
+{
+	cout << "----------Try to Bundle Adjustment----------" << endl;
+	vector<cv::Mat> extrinsics;
+	//vector<cv::Mat> intrinsics;
+	cv::Mat intrinsic(cv::Matx41d(imageset.Kmats[*DoneViews.begin()].at<double>(0, 0), imageset.Kmats[*DoneViews.begin()].at<double>(1, 1), imageset.Kmats[*DoneViews.begin()].at<double>(0, 2), imageset.Kmats[*DoneViews.begin()].at<double>(1, 2)));
+
+	set<int>::iterator it = DoneViews.begin();
+	while (it != DoneViews.end())
+	{
+		cv::Mat extrinsic(6, 1, CV_64FC1);
+		cv::Mat r;
+		Rodrigues(imageset.RTmats[*it](cv::Range(0, 3), cv::Range(0, 3)), r);
+		r.copyTo(extrinsic.rowRange(0, 3));
+		imageset.RTmats[*it].col(3).copyTo(extrinsic.rowRange(3, 6));
+		extrinsics.push_back(extrinsic);
+
+		//cv::Mat intrinsic(cv::Matx41d(imageset.Kmats[*it].at<double>(0, 0), imageset.Kmats[*it].at<double>(1, 1), imageset.Kmats[*it].at<double>(0, 2), imageset.Kmats[*it].at<double>(1, 2)));
+		//intrinsics.push_back(intrinsic);
+
+		it++;
+	}
+
+	ceres::Problem problem;
+
+	for (size_t i = 0; i < extrinsics.size(); ++i)
+	{
+		problem.AddParameterBlock(extrinsics[i].ptr<double>(), 6);
+	}
+	problem.SetParameterBlockConstant(extrinsics[0].ptr<double>());
+	//for (size_t i = 0; i < intrinsics.size(); ++i)
+	//{
+	//	problem.AddParameterBlock(intrinsics[i].ptr<double>(), 4);
+	//}
+	problem.AddParameterBlock(intrinsic.ptr<double>(), 4);
+	ceres::LossFunction* loss_function = new ceres::HuberLoss(4);
+
+	it = DoneViews.begin();
+	size_t count = 0;
+	while (it != DoneViews.end())
+	{
+		for (size_t i = 0; i < tracklist.trackIds[*it].size(); i++)
+		{
+			int idx = tracklist.trackIds[*it][i];
+			if (idx < 0)
+				continue;
+			if (tracklist.tracks[idx].status != 1)
+				continue;
+
+			cv::Point2d observed = keypoints.getKeyPoint(*it, i).pt;
+			ceres::CostFunction* cost_function = new ceres::AutoDiffCostFunction<ReprojectCost, 2, 4, 6, 3>(new ReprojectCost(observed));
+			problem.AddResidualBlock(
+				cost_function,
+				loss_function,
+				intrinsic.ptr<double>(),            // Intrinsic
+				extrinsics[count].ptr<double>(),  // View Rotation and Translation
+				&(tracklist.tracks[idx].position.x)          // Point in 3D space
+			);
+		}
+
+		count++;
+		it++;
+	}
+
+	// Solve BA
+	ceres::Solver::Options ceres_config_options;
+	ceres_config_options.minimizer_progress_to_stdout = false;
+	ceres_config_options.logging_type = ceres::SILENT;
+	ceres_config_options.num_threads = 1;
+	ceres_config_options.preconditioner_type = ceres::JACOBI;
+	ceres_config_options.linear_solver_type = ceres::SPARSE_SCHUR;
+	ceres_config_options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+
+	ceres::Solver::Summary summary;
+	ceres::Solve(ceres_config_options, &problem, &summary);
+	if (!summary.IsSolutionUsable())
+	{
+		std::cout << "Bundle Adjustment failed." << std::endl;
+	}
+	else
+	{
+		// Display statistics about the minimization
+		std::cout << std::endl
+			<< "Bundle Adjustment statistics (approximated RMSE):\n"
+			<< " #views: " << extrinsics.size() << "\n"
+			<< " #residuals: " << summary.num_residuals << "\n"
+			<< " Initial RMSE: " << std::sqrt(summary.initial_cost / summary.num_residuals) << "\n"
+			<< " Final RMSE: " << std::sqrt(summary.final_cost / summary.num_residuals) << "\n"
+			<< " Time (s): " << summary.total_time_in_seconds << "\n"
+			<< std::endl;
+	}
+
+	it = DoneViews.begin();
+	count = 0;
+	while (it != DoneViews.end())
+	{
+		//cv::Mat intrinsic = intrinsics[count];
+
+		imageset.Kmats[*it].at<double>(0, 0) = intrinsic.at<double>(0);
+		imageset.Kmats[*it].at<double>(1, 1) = intrinsic.at<double>(1);
+		imageset.Kmats[*it].at<double>(0, 2) = intrinsic.at<double>(2);
+		imageset.Kmats[*it].at<double>(1, 2) = intrinsic.at<double>(3);
+
+		cv::Mat extrinsic = extrinsics[count];
+		cv::Mat r, R;
+
+		extrinsic.rowRange(0, 3).copyTo(r);
+		Rodrigues(r, R);
+		imageset.updateRTmat(*it, R, extrinsic.rowRange(3, 6));
+
+		count++;
+		it++;
 	}
 }

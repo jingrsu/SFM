@@ -1,4 +1,6 @@
 #include "tracklist.h"
+#include <iostream>
+
 //数据量大时每调用一次vector的erase都会导致重新分配内存，效率很低
 //故此需要减少erase的次数
 void TrackList::removeTracks(const vector<bool>&invalidTracks, vector<Track>&tracks)
@@ -102,11 +104,11 @@ TrackList::TrackList(const KeyPoints&keypoints, const Matches&matches)
 	for (int i = 0; i<tracks.size(); i++)
 	{
 		Track&track = tracks[i];
-		//删除小于3个视图的，空视图的，有冲突的
+		//删除小于2个视图的，空视图的，有冲突的
 		if (track.features.size()<2 || track.features.empty() || track.hasConfilct())
 		{
 			invalidTracks[i] = true;
-			cout << "remove track:" << i << endl;
+			//cout << "remove track:" << i << endl;
 		}
 	}
 	removeTracks(invalidTracks, tracks);
@@ -120,7 +122,7 @@ TrackList::TrackList(const string&fileName)
 	tracks.resize(n);
 	for (int i = 0; i<n; i++) {
 		Track&track = tracks[i];
-		ifs >> track.x >> track.y >> track.z;
+		ifs >> track.position.x >> track.position.y >> track.position.z;
 		int fn;
 		ifs >> fn;
 		track.features.resize(fn);
@@ -157,7 +159,7 @@ void TrackList::save2ply(const string&fileName)
 
 	fout << "ply" << endl;
 	fout << "format ascii 1.0" << endl;
-	fout << "element vertex " << tracks.size() << endl;
+	fout << "element vertex " << DoneTracks << endl;
 	fout << "property float x" << endl;
 	fout << "property float y" << endl;
 	fout << "property float z" << endl;
@@ -166,9 +168,56 @@ void TrackList::save2ply(const string&fileName)
 	fout << "property uchar diffuse_blue" << endl;
 	fout << "end_header" << endl;
 	for (int i = 0; i<tracks.size(); i++) {
-		fout << tracks[i].x << " " << tracks[i].y << " " << tracks[i].z << " " << tracks[i].r << " " << tracks[i].g << " " << tracks[i].b << endl;
+		if (tracks[i].status != 1)
+			continue;
+		fout << tracks[i].position.x << " " << tracks[i].position.y << " " << tracks[i].position.z << " " << tracks[i].r << " " << tracks[i].g << " " << tracks[i].b << endl;
 	}
 	fout.close();
+}
+
+void TrackList::save2yml(const string&file_name, ImageSet& imageset)
+{
+	int n = imageset.images.size();
+
+	FileStorage fs(file_name, FileStorage::WRITE);
+	fs << "Camera Count" << n;
+	fs << "Point Count" << (int)DoneTracks;
+
+	fs << "Rotations" << "[";
+	for (size_t i = 0; i < n; ++i)
+	{
+		fs << imageset.RTmats[i].colRange(0,3);
+	}
+	fs << "]";
+
+	fs << "Motions" << "[";
+	for (size_t i = 0; i < n; ++i)
+	{
+		fs << imageset.RTmats[i].col(3);
+	}
+	fs << "]";
+
+	fs << "Points" << "[";
+	for (size_t i = 0; i < DoneTracks; ++i)
+	{
+		if (tracks[i].status != 1)
+			continue;
+
+		fs << tracks[i].position;
+	}
+	fs << "]";
+
+	fs << "Colors" << "[";
+	for (size_t i = 0; i < DoneTracks; ++i)
+	{
+		if (tracks[i].status != 1)
+			continue;
+
+		fs << cv::Vec3b(tracks[i].b, tracks[i].g, tracks[i].r);
+	}
+	fs << "]";
+
+	fs.release();
 }
 
 void TrackList::getColor(const vector<cv::Mat> &images)
@@ -197,7 +246,7 @@ void TrackList::saveTo(const string &fileName)
 	for (int i = 0; i<tracks.size(); i++)
 	{
 		Track&track = tracks[i];
-		ofs << track.x << " " << track.y << " " << track.z << " ";
+		ofs << track.position.x << " " << track.position.y << " " << track.position.z << " ";
 		ofs << track.features.size() << " ";
 		for (int j = 0; j<track.features.size(); j++)
 		{
@@ -219,7 +268,7 @@ ostream&operator<<(ostream&os, const TrackList&trackList)
 {
 	for (int i = 0; i<trackList.tracks.size(); i++)
 	{
-		cout << "(" << trackList.tracks[i].x << "," << trackList.tracks[i].y << "," << trackList.tracks[i].z << ");" << trackList.tracks[i] << endl;
+		cout << "(" << trackList.tracks[i].position.x << "," << trackList.tracks[i].position.y << "," << trackList.tracks[i].position.z << ");" << trackList.tracks[i] << endl;
 
 	}
 	return os;

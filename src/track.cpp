@@ -1,18 +1,21 @@
 #include "track.h"
+
 Track::Track()
 {
-	this->x = -1;
-	this->y = -1;
-	this->z = -1;
+	this->position.x = -1;
+	this->position.y = -1;
+	this->position.z = -1;
 	this->r = 255;
 	this->g = 255;
 	this->b = 255;
 	this->status = -1;
 }
+
 void Track::addFeature(const Feature &f)
 {
 	features.push_back(f);
 }
+
 bool Track::hasConfilct()
 {
 	set<int> frameIds;
@@ -25,6 +28,7 @@ bool Track::hasConfilct()
 	}
 	return false;
 }
+
 double Track::reprojectionError(const vector<cv::Mat>&pmats, const cv::Mat&points4D)
 {
 	double e = 0;
@@ -39,6 +43,7 @@ double Track::reprojectionError(const vector<cv::Mat>&pmats, const cv::Mat&point
 	}
 	return e / features.size();
 }
+
 void Track::triangulate(const vector<cv::Mat>&pmats)
 {
 	double minE = 1e+10;
@@ -73,11 +78,28 @@ void Track::triangulate(const vector<cv::Mat>&pmats)
 		}
 	}
 	//cout<<"×îÐ¡Îó²î:"<<minE<<endl;
-	this->x = bestX;
-	this->y = bestY;
-	this->z = bestZ;
+	this->position.x = bestX;
+	this->position.y = bestY;
+	this->position.z = bestZ;
 	this->error = minE;
 }
+
+void Track::triangulate(cv::Mat Pmat1, cv::Mat Pmat2, cv::Point2f point1, cv::Point2f point2)
+{
+	cv::Mat s;
+	vector<cv::Point2f> p1, p2;
+	p1.push_back(point1);
+	p2.push_back(point2);
+	triangulatePoints(Pmat1, Pmat2, p1, p2, s);
+	assert(s.cols == 1);
+
+	s /= s.at<float>(3);
+	position.x = s.at<float>(0);
+	position.y = s.at<float>(1);
+	position.z = s.at<float>(2);
+
+}
+
 ostream&operator<<(ostream&os, const Track&track)
 {
 	for (vector<Feature>::const_iterator it = track.features.begin(); it != track.features.end(); it++)

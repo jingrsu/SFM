@@ -46,12 +46,46 @@ ImageSet::ImageSet(const string& imageDir)
 	vector<string> names;
 	get_file_names(imageDir, names);
 	cv::Mat K(cv::Matx33d(
-		2759.48, 0, 1520.69,
-		0, 2764.16, 1006.81,
+		1000, 0, 256,
+		0, 1000, 384,
 		0, 0, 1));
+	cv::Mat M(3, 4, CV_64FC1, cv::Scalar(0));
 	for (size_t i = 0; i < names.size(); i++)
 	{
 		images.push_back(cv::imread(names[i]));
 		Kmats.push_back(K);
+		RTmats.push_back(M);
+		Pmats.push_back(M);
 	}
+}
+
+void ImageSet::updateKmat(int i, cv::Mat K)
+{
+	Kmats[i] = K;
+
+	updatePmat(i);
+}
+
+void ImageSet::updateRTmat(int i, cv::Mat R, cv::Mat T)
+{
+	cv::Mat RT(3, 4, CV_64FC1);
+	R.convertTo(RT(cv::Range(0, 3), cv::Range(0, 3)), CV_64FC1);
+	T.convertTo(RT.col(3), CV_64FC1);
+	RTmats[i] = RT;
+
+	updatePmat(i);
+}
+
+void ImageSet::updateRTmat(int i, cv::Mat RT)
+{
+	RTmats[i] = RT;
+
+	updatePmat(i);
+}
+
+void ImageSet::updatePmat(int i)
+{
+	cv::Mat P = Kmats[i] * RTmats[i];
+	Pmats[i] = P;
+
 }

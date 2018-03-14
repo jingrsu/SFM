@@ -9,8 +9,10 @@
 #include "track.h"
 #include "keypoints.h"
 #include "matches.h"
+#include "imageset.h"
 
 using namespace std;
+using namespace cv;
 
 class TrackList {
 private:
@@ -19,6 +21,7 @@ public:
 
 	vector<Track> tracks;
 	vector<vector<int> > trackIds;
+	size_t DoneTracks = 0;
 
 	TrackList(const KeyPoints&keypoints, const Matches&matches);
 	TrackList(const string&fileName);
@@ -27,6 +30,7 @@ public:
 	void getColor(const vector<cv::Mat>&images);
 	//保存到ply文件
 	void save2ply(const string&fileName);
+	void save2yml(const string&file_name, ImageSet& imageset);
 	void saveTo(const string&fileName);
 	void  printf();
 	friend ostream&operator<<(ostream&os, const TrackList&trackList);

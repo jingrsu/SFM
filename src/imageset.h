@@ -17,5 +17,9 @@ public:
 	vector<cv::Mat> RTmats;
 	vector<cv::Mat> Pmats;
 
+	void updateKmat(int i, cv::Mat K);
+	void updateRTmat(int i, cv::Mat R, cv::Mat T);
+	void updateRTmat(int i, cv::Mat RT);
+	void updatePmat(int i);
 };
 #endif

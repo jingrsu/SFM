@@ -16,10 +16,10 @@ private:
 public:
 	//track对应的状态
 	int status;
+	//track中第一个求得RT矩阵的特征点的索引
+	pair<int, int> frameIdx_and_idx;
 	//track对应的3维坐标
-	double x;
-	double y;
-	double z;
+	cv::Point3d position;
 	//track对应的重投影误差
 	double error;
 	//track包含的特征点
@@ -35,6 +35,7 @@ public:
 	bool hasConfilct();
 	//三角化track
 	void triangulate(const vector<cv::Mat>&pmats);
+	void triangulate(cv::Mat Pmat1, cv::Mat Pmat2, cv::Point2f point1, cv::Point2f point2);
 	friend ostream&operator<<(ostream&os, const Track&track);
 };
 #endif

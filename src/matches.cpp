@@ -15,7 +15,7 @@ void Matches::pairwiseMatch(const vector<cv::KeyPoint>& keypoints1, const vector
 		points2.push_back(keypoints2[it->trainIdx].pt);
 	}
 	vector<uchar> mask;
-	cv::Mat F = findFundamentalMat(points1, points2, cv::FM_RANSAC, 1, 0.99, mask);
+	cv::Mat F = findFundamentalMat(points1, points2, cv::FM_RANSAC, 1.0, 0.99, mask);
 	//用ransac算法产生的mask获取更好的特征匹配
 	for (vector<cv::DMatch>::size_type i = 0; i<initalMatches.size(); i++)
 	{
@@ -23,6 +23,55 @@ void Matches::pairwiseMatch(const vector<cv::KeyPoint>& keypoints1, const vector
 			matches.push_back(initalMatches[i]);
 	}
 }
+
+//void Matches::pairwiseMatch(const vector<cv::KeyPoint>& keypoints1, const vector<cv::KeyPoint>& keypoints2, const cv::Mat& descriptors1, const cv::Mat& descriptors2, vector<cv::DMatch>& matches)
+//{
+//	vector<vector<cv::DMatch>> knn_matches;
+//	cv::BFMatcher matcher(cv::NORM_L2);
+//	matcher.knnMatch(descriptors1, descriptors2, knn_matches, 2);
+//
+//	float min_dist = FLT_MAX;
+//	for (int r = 0; r < knn_matches.size(); ++r)
+//	{
+//		//Ratio Test
+//		if (knn_matches[r][0].distance > 0.6*knn_matches[r][1].distance)
+//			continue;
+//
+//		float dist = knn_matches[r][0].distance;
+//		if (dist < min_dist) min_dist = dist;
+//	}
+//
+//	vector<cv::DMatch> initalMatches;
+//	for (size_t r = 0; r < knn_matches.size(); ++r)
+//	{
+//		//排除不满足Ratio Test的点和匹配距离过大的点
+//		if (
+//			knn_matches[r][0].distance > 0.6*knn_matches[r][1].distance ||
+//			knn_matches[r][0].distance > 5 * max(min_dist, 10.0f)
+//			)
+//			continue;
+//
+//		//保存匹配点
+//		initalMatches.push_back(knn_matches[r][0]);
+//	}
+//
+//	//计算基础矩阵
+//	vector<cv::Point2d> points1;
+//	vector<cv::Point2d> points2;
+//	for (vector<cv::DMatch>::iterator it = initalMatches.begin(); it != initalMatches.end(); it++)
+//	{
+//		points1.push_back(keypoints1[it->queryIdx].pt);
+//		points2.push_back(keypoints2[it->trainIdx].pt);
+//	}
+//	vector<uchar> mask;
+//	cv::Mat F = findFundamentalMat(points1, points2, cv::FM_RANSAC, 1.0, 0.99, mask);
+//	//用ransac算法产生的mask获取更好的特征匹配
+//	for (vector<cv::DMatch>::size_type i = 0; i<initalMatches.size(); i++)
+//	{
+//		if (mask[i])
+//			matches.push_back(initalMatches[i]);
+//	}
+//}
 
 Matches::Matches(const KeyPoints& keyPoints)
 {
