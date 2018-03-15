@@ -26,7 +26,7 @@ int main()
 	tracklist.save2yml("structure.yml",imageset);
 	tracklist.save2ply("structure.ply");
 
-	//cout << imageset.RTmats[1] << endl << imageset.RTmats[2] << endl;
+	//cout << imageset.Pmats[0] << endl << imageset.Pmats[1] << endl << imageset.Pmats[2] << endl;
 
 	system("pause");
 

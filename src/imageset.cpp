@@ -46,8 +46,8 @@ ImageSet::ImageSet(const string& imageDir)
 	vector<string> names;
 	get_file_names(imageDir, names);
 	cv::Mat K(cv::Matx33d(
-		1000, 0, 256,
-		0, 1000, 384,
+		2759.48, 0, 1520.69,
+		0, 2764.16, 1006.81,
 		0, 0, 1));
 	cv::Mat M(3, 4, CV_64FC1, cv::Scalar(0));
 	for (size_t i = 0; i < names.size(); i++)
