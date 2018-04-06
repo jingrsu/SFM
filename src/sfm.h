@@ -58,6 +58,8 @@ public:
 	SFM(ImageSet& _imageset, KeyPoints& _keypoints, Matches& _matches, TrackList& _tracklist);
 	void findBaselineTriangulation();
 	void addMoreViewsToReconstruction();
+	void toBundle2PMVS();
+	void toMyPMVS();
 private:
 
 	ImageSet & imageset;

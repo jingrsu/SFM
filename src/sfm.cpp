@@ -305,7 +305,7 @@ void SFM::addMoreViewsToReconstruction()
 			}
 		}
 
-		if (bestNumMatches < 20)
+		if (bestNumMatches < 10)
 		{
 			cout << "There are too few matching images here" << endl;
 			break;
@@ -472,4 +472,71 @@ void SFM::BundleAdjustment()
 		count++;
 		it++;
 	}
+}
+
+void SFM::toBundle2PMVS()
+{
+	ofstream fout("bundle.out");
+
+	fout << "# Bundle file v0.3\n";
+	fout << imageset.images.size() << ' ' << tracklist.DoneTracks << '\n';
+	for (size_t i = 0; i < imageset.images.size(); i++)
+	{
+		fout << imageset.Kmats[i].at<double>(0, 0) << ' ' << (double)0.0 << ' ' << (double)0.0 << '\n';
+		fout << imageset.RTmats[i].at<double>(0, 0) << ' ' << imageset.RTmats[i].at<double>(0, 1) << ' ' << imageset.RTmats[i].at<double>(0, 2) << '\n';
+		fout << imageset.RTmats[i].at<double>(1, 0) << ' ' << imageset.RTmats[i].at<double>(1, 1) << ' ' << imageset.RTmats[i].at<double>(1, 2) << '\n';
+		fout << imageset.RTmats[i].at<double>(2, 0) << ' ' << imageset.RTmats[i].at<double>(2, 1) << ' ' << imageset.RTmats[i].at<double>(2, 2) << '\n';
+		fout << imageset.RTmats[i].at<double>(0, 3) << ' ' << imageset.RTmats[i].at<double>(1, 3) << ' ' << imageset.RTmats[i].at<double>(2, 3) << '\n';
+	}
+
+	for (size_t i = 0; i < tracklist.tracks.size(); i++)
+	{
+		Track &track = tracklist.tracks[i];
+		if (track.status != 1)
+			continue;
+
+		fout << track.position.x << ' ' << track.position.y << ' ' << track.position.z << '\n';
+		fout << track.r << ' ' << track.g << ' ' << track.b << '\n';
+		fout << track.features.size() << ' ';
+		for (size_t j = 0; j < track.features.size(); j++)
+		{
+			Feature &feature = track.features[j];
+			fout << feature.frameIdx << ' ' << feature.idx << ' ' << feature.x - imageset.images[feature.frameIdx].cols/2 << ' ' << imageset.images[feature.frameIdx].rows / 2 - feature.y;
+			if (j == track.features.size() - 1)
+				fout << '\n';
+			else
+				fout << ' ';
+		}
+	}
+
+	fout.close();
+
+	fout.open("list.txt");
+
+	for (size_t i = 0; i < imageset.imageNames.size(); i++)
+	{
+		fout << imageset.imageNames[i] << '\n';
+	}
+
+	fout.close();
+}
+
+void SFM::toMyPMVS()
+{
+	ofstream fout("imageParameter.txt");
+
+	fout << imageset.images.size() << '\n';
+	for (size_t i = 0; i < imageset.images.size(); i++)
+	{
+		fout << imageset.imageNames[i] << ' '
+			<< imageset.Kmats[i].at<double>(0, 0) << ' ' << imageset.Kmats[i].at<double>(0, 1) << ' ' << imageset.Kmats[i].at<double>(0, 2) << ' '
+			<< imageset.Kmats[i].at<double>(1, 0) << ' ' << imageset.Kmats[i].at<double>(1, 1) << ' ' << imageset.Kmats[i].at<double>(1, 2) << ' '
+			<< imageset.Kmats[i].at<double>(2, 0) << ' ' << imageset.Kmats[i].at<double>(2, 1) << ' ' << imageset.Kmats[i].at<double>(2, 2) << ' '
+			<< imageset.RTmats[i].at<double>(0, 0) << ' ' << imageset.RTmats[i].at<double>(0, 1) << ' ' << imageset.RTmats[i].at<double>(0, 2) << ' '
+			<< imageset.RTmats[i].at<double>(1, 0) << ' ' << imageset.RTmats[i].at<double>(1, 1) << ' ' << imageset.RTmats[i].at<double>(1, 2) << ' '
+			<< imageset.RTmats[i].at<double>(2, 0) << ' ' << imageset.RTmats[i].at<double>(2, 1) << ' ' << imageset.RTmats[i].at<double>(2, 2) << ' '
+			<< imageset.RTmats[i].at<double>(0, 3) << ' ' << imageset.RTmats[i].at<double>(1, 3) << ' ' << imageset.RTmats[i].at<double>(2, 3) << ' '
+			<< '\n';
+	}
+	fout.close();
 }
